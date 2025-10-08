@@ -5,6 +5,25 @@ A polished SaaS-style bulk certificate generator.
 - Guided generation flow (upload → details → generate)
 - Professional PDF certificates (cream + gold, proper spacing)
 - Preview & download table
+  # 🪪 CertifyPro - Online Certificate Generator
+
+**CertifyPro** is a full-stack web application that allows users to upload Excel sheets, generate personalized certificates (with QR codes), and manage all generated certificates in a database.  
+It also includes a simple admin login system.
+
+---
+
+## 🚀 Tech Stack
+
+**Frontend:** React.js, HTML, CSS, JavaScript  
+**Backend:** Node.js, Express.js  
+**Database:** MySQL  
+**Other Tools:** PDFKit, QRCode, Multer, XLSX, dotenv
+
+---
+
+## 📂 Project Structure
+
+
 
 ## Dev
 ```bash
