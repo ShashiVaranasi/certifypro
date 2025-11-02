@@ -1,125 +1,99 @@
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 
-function Generate() {
-  const [excelData, setExcelData] = useState([]);
-  const [organisation, setOrganisation] = useState("");
-  const [course, setCourse] = useState("");
-  const [loading, setLoading] = useState(false);
+function Certificates() {
+  const [certificates, setCertificates] = useState([]);
 
-  // Upload Excel
-  const handleFileUpload = async (e) => {
-    const file = e.target.files[0];
-    if (!file) return;
+  // ✅ Automatically choose the right backend (Render when deployed, localhost when testing)
+  const API_BASE_URL =
+    import.meta.env.VITE_API_URL || "http://localhost:5000";
 
-    const formData = new FormData();
-    formData.append("file", file);
+  useEffect(() => {
+    fetchCertificates();
+  }, []);
 
+  const fetchCertificates = async () => {
     try {
-      setLoading(true);
-      const res = await fetch("http://localhost:5000/upload-excel", {
-        method: "POST",
-        body: formData,
-      });
+      const res = await fetch(`${API_BASE_URL}/certificates`);
+      if (!res.ok) throw new Error("Failed to fetch certificates");
       const data = await res.json();
-      setExcelData(data);
-      alert("Excel uploaded successfully!");
+      setCertificates(data);
     } catch (err) {
-      alert("Failed to upload Excel file!");
-      console.error(err);
-    } finally {
-      setLoading(false);
+      console.error("❌ Error fetching certificates:", err);
     }
   };
 
-  // Save data to DB
-  const handleGenerate = async () => {
-    if (!organisation || !course) {
-      alert("Please fill organisation and course details!");
-      return;
-    }
-    if (excelData.length === 0) {
-      alert("Please upload Excel first!");
-      return;
-    }
-
-    setLoading(true);
-
+  const handleDownload = async (cert) => {
     try {
-      for (const row of excelData) {
-        await fetch("http://localhost:5000/generate-db", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            name: row.name,
-            skills: row.skills,
-            organisation,
-            course,
-          }),
-        });
-      }
+      const res = await fetch(`${API_BASE_URL}/generate`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          name: cert.name,
+          skills: cert.skills,
+          organisation: cert.organisation,
+          course: cert.course,
+        }),
+      });
 
-      alert("All certificates saved successfully!");
-      window.location.href = "/certificates";
+      if (!res.ok) throw new Error("Failed to download PDF");
+
+      const blob = await res.blob();
+      const link = document.createElement("a");
+      link.href = window.URL.createObjectURL(blob);
+      link.download = `${cert.name}-certificate.pdf`;
+      link.click();
     } catch (err) {
-      console.error("❌ Error saving data:", err);
-      alert("Failed to generate certificates!");
-    } finally {
-      setLoading(false);
+      console.error("❌ Download failed:", err);
+      alert("Failed to download certificate!");
     }
   };
 
   return (
-    <div className="generate-page">
-      <h1 className="heading">Upload Excel & Generate Certificates</h1>
+    <div className="certificates-page">
+      <h1 className="heading">Generated Certificates</h1>
 
-      <div className="form-section">
-        <label>Upload Excel:</label>
-        <input type="file" accept=".xlsx, .xls" onChange={handleFileUpload} />
-
-        <label>Organisation Name:</label>
-        <input
-          type="text"
-          placeholder="Enter organisation name"
-          value={organisation}
-          onChange={(e) => setOrganisation(e.target.value)}
-        />
-
-        <label>Course Name:</label>
-        <input
-          type="text"
-          placeholder="Enter course name"
-          value={course}
-          onChange={(e) => setCourse(e.target.value)}
-        />
-
-        <button onClick={handleGenerate} disabled={loading}>
-          {loading ? "Processing..." : "Generate Certificates"}
-        </button>
-      </div>
-
-      {excelData.length > 0 && (
-        <div className="preview-section">
-          <h3>Preview Data</h3>
-          <table border="1">
-            <thead>
-              <tr>
-                <th>Name</th>
-                <th>Skills</th>
+      {certificates.length === 0 ? (
+        <p>No certificates found. Generate some first!</p>
+      ) : (
+        <table border="1" className="cert-table">
+          <thead>
+            <tr>
+              <th>ID</th>
+              <th>Name</th>
+              <th>Course</th>
+              <th>Skills</th>
+              <th>Organisation</th>
+              <th>Date Issued</th>
+              <th>Download</th>
+            </tr>
+          </thead>
+          <tbody>
+            {certificates.map((cert) => (
+              <tr key={cert.certificate_id}>
+                <td>{cert.certificate_id}</td>
+                <td>{cert.name}</td>
+                <td>{cert.course}</td>
+                <td>{cert.skills}</td>
+                <td>{cert.organisation}</td>
+                <td>
+                  {new Date(cert.date_issued).toLocaleDateString("en-GB", {
+                    day: "2-digit",
+                    month: "short",
+                    year: "numeric",
+                  })}
+                </td>
+                <td>
+                  <button onClick={() => handleDownload(cert)}>
+                    ⬇️ Download
+                  </button>
+                </td>
               </tr>
-            </thead>
-            <tbody>
-              {excelData.map((row, index) => (
-                <tr key={index}>
-                  <td>{row.name}</td>
-                  <td>{row.skills}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+            ))}
+          </tbody>
+        </table>
       )}
     </div>
   );
 }
 
-export default Generate;
+export default Certificates;

@@ -3,13 +3,19 @@ import React, { useEffect, useState } from "react";
 function Certificates() {
   const [certificates, setCertificates] = useState([]);
 
+  // ✅ Automatically switch between local and deployed backend
+  const API_BASE_URL =
+    import.meta.env.VITE_API_URL || "http://localhost:5000";
+
   useEffect(() => {
     fetchCertificates();
   }, []);
 
+  // ✅ Fetch all certificates
   const fetchCertificates = async () => {
     try {
-      const res = await fetch("http://localhost:5000/certificates");
+      const res = await fetch(`${API_BASE_URL}/certificates`);
+      if (!res.ok) throw new Error("Failed to fetch certificates");
       const data = await res.json();
       setCertificates(data);
     } catch (err) {
@@ -17,9 +23,10 @@ function Certificates() {
     }
   };
 
+  // ✅ Handle certificate PDF download
   const handleDownload = async (cert) => {
     try {
-      const res = await fetch("http://localhost:5000/generate", {
+      const res = await fetch(`${API_BASE_URL}/generate`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -64,7 +71,7 @@ function Certificates() {
           </thead>
           <tbody>
             {certificates.map((cert) => (
-              <tr key={cert.id}>
+              <tr key={cert.certificate_id}>
                 <td>{cert.certificate_id}</td>
                 <td>{cert.name}</td>
                 <td>{cert.course}</td>
@@ -78,7 +85,9 @@ function Certificates() {
                   })}
                 </td>
                 <td>
-                  <button onClick={() => handleDownload(cert)}>⬇️ Download</button>
+                  <button onClick={() => handleDownload(cert)}>
+                    ⬇️ Download
+                  </button>
                 </td>
               </tr>
             ))}
