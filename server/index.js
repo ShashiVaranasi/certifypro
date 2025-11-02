@@ -8,11 +8,14 @@ const PDFDocument = require("pdfkit");
 const QRCode = require("qrcode");
 const { v4: uuidv4 } = require("uuid");
 const mysql = require("mysql2");
-require("dotenv").config();
-dotenv.config(); 
+require("dotenv").config(); // ✅ only once
+
 const app = express();
 const PORT = process.env.PORT || 5000;
-const __dirname = path.resolve();
+
+// ✅ REMOVE this line (it caused the Render error)
+// const __dirname = path.resolve();
+
 app.use(cors());
 app.use(express.json());
 
@@ -24,7 +27,7 @@ const upload = multer({ dest: "uploads/" });
 const db = mysql.createConnection({
   host: process.env.DB_HOST || "localhost",
   user: process.env.DB_USER || "root",
-  password: process.env.DB_PASS || "1234",
+  password: process.env.DB_PASSWORD || "1234", // ✅ corrected variable
   database: process.env.DB_NAME || "certifypro",
   port: process.env.DB_PORT || 3306,
 });
@@ -64,7 +67,7 @@ app.post("/upload-excel", upload.single("file"), (req, res) => {
 });
 
 // ============================
-// 📝 SAVE STUDENT INTO DATABASE WITHOUT GENERATING PDF
+// 📝 SAVE STUDENT INTO DATABASE
 // ============================
 app.post("/generate-db", (req, res) => {
   const { name, skills, organisation, course } = req.body;
@@ -77,7 +80,7 @@ app.post("/generate-db", (req, res) => {
   `;
   const values = [name, skills, organisation, course, certificateID, new Date()];
 
-  db.query(sql, values, (err, result) => {
+  db.query(sql, values, (err) => {
     if (err) {
       console.error("❌ DB insert error:", err);
       return res.status(500).json({ success: false, message: "DB insert failed" });
@@ -88,7 +91,7 @@ app.post("/generate-db", (req, res) => {
 });
 
 // ============================
-// 🧾 GENERATE CERTIFICATE AND DOWNLOAD PDF
+// 🧾 GENERATE CERTIFICATE (PDF)
 // ============================
 app.post("/generate", async (req, res) => {
   const { name, skills } = req.body;
@@ -99,7 +102,6 @@ app.post("/generate", async (req, res) => {
   const qrData = `Name: ${name}\nCourse: ${course}\nOrganisation: ${organisation}\nCertificate ID: ${certificateID}`;
   const qrImage = await QRCode.toDataURL(qrData);
 
-  // === PDF Generation ===
   const doc = new PDFDocument({ size: "A4", margin: 50 });
   let buffers = [];
   doc.on("data", (chunk) => buffers.push(chunk));
@@ -113,10 +115,8 @@ app.post("/generate", async (req, res) => {
     res.end(pdfData);
   });
 
-  // === Certificate Layout ===
+  // Layout
   doc.rect(0, 0, 595, 842).fill("#ffffff");
-
-  // Borders
   doc.save();
   for (let i = 0; i < 5; i++) {
     doc
@@ -127,71 +127,31 @@ app.post("/generate", async (req, res) => {
   }
   doc.restore();
 
-  // Brand logo
   const logoPath = path.join(__dirname, "assets", "brand-logo.png");
   if (fs.existsSync(logoPath)) doc.image(logoPath, 460, 45, { width: 70 });
 
-  // Title & subtitle
   doc.fillColor("#E65100").font("Times-Bold").fontSize(36)
     .text("Certificate of Completion", 0, 140, { align: "center" });
-  doc.fillColor("#000000").font("Times-Roman").fontSize(16)
+  doc.fillColor("#000").font("Times-Roman").fontSize(16)
     .text("This is proudly presented to", 0, 190, { align: "center" });
+  doc.fillColor("#000").font("Helvetica-Bold").fontSize(30)
+    .text(name, 0, 220, { align: "center" });
 
-  // Student Name
-  doc.fillColor("#cccccc").font("Helvetica-Bold").fontSize(30)
-    .text(name, 2, 222, { align: "center" });
-  doc.fillColor("#000").text(name, 0, 220, { align: "center" });
+  doc.moveTo(150, 260).lineTo(445, 260).stroke("#FF8F00");
 
-  // Divider
-  doc.moveTo(150, 260).lineTo(445, 260).lineWidth(1).strokeColor("#FF8F00").stroke();
-
-  // Course & Organisation
-  doc.fillColor("#000000").font("Times-Roman").fontSize(16)
+  doc.fillColor("#000").fontSize(16)
     .text(`for successfully completing the course: "${course}"`, 0, 280, { align: "center" });
-  doc.moveTo(150, 310).lineTo(445, 310).lineWidth(0.5).strokeColor("#FF8F00").stroke();
-  doc.fillColor("#333333").font("Helvetica-Oblique").fontSize(14)
+
+  doc.fillColor("#333").font("Helvetica-Oblique").fontSize(14)
     .text(`Organisation: ${organisation}`, 0, 330, { align: "center" });
 
-  // Skills logos
-  const skillList = skills.split(",").map((s) => s.trim().toLowerCase());
-  const logoWidth = 50, spacing = 15;
-  const totalWidth = skillList.length * logoWidth + (skillList.length - 1) * spacing;
-  let startX = (595 - totalWidth) / 2;
-  const logoY = 380;
-  skillList.forEach((skill) => {
-    const skillLogo = path.join(__dirname, "assets", `${skill}.png`);
-    if (fs.existsSync(skillLogo)) {
-      doc.image(skillLogo, startX, logoY, { width: logoWidth, height: logoWidth });
-      startX += logoWidth + spacing;
-    }
-  });
-
-  // Bottom row: QR + signature + certificate ID
-  const bottomY = logoY + logoWidth + 120;
-  const qrSize = 80;
+  // QR Code and ID
   const qrBuffer = Buffer.from(qrImage.split(",")[1], "base64");
-  const qrX = (595 - qrSize) / 2;
-  const qrY = bottomY;
-  doc.image(qrBuffer, qrX, qrY, { width: qrSize, height: qrSize });
+  doc.image(qrBuffer, 260, 500, { width: 80, height: 80 });
 
-  const sigWidth = 180;
-  const sigX = 595 - 50 - sigWidth;
-  const sigY = qrY + qrSize / 2;
-  doc.moveTo(sigX, sigY).lineTo(sigX + sigWidth, sigY).lineWidth(1).strokeColor("#000000").stroke();
-  doc.font("Times-Roman").fontSize(12).fillColor("#000000")
-    .text("Authorized Signature", sigX, sigY + 5, { width: sigWidth, align: "center" });
-
-  const leftTextHeight = 24;
-  const leftY = qrY + (qrSize - leftTextHeight) / 2;
-  doc.font("Times-Roman").fontSize(12).fillColor("#000000")
-    .text(
-      `Certificate ID: ${certificateID}\nDate: ${new Date().toLocaleDateString("en-GB",{day:'2-digit',month:'short',year:'numeric'})}`,
-      50,
-      leftY,
-      { align: "left" }
-    );
-
-  doc.fontSize(10).fillColor("#666666")
+  doc.fontSize(12).fillColor("#000")
+    .text(`Certificate ID: ${certificateID}`, 50, 600)
+    .text(`Date: ${new Date().toLocaleDateString("en-GB")}`, 50, 620)
     .text("Generated by CertifyPro - Verify using QR code", 0, 780, { align: "center" });
 
   doc.end();
@@ -210,4 +170,4 @@ app.get("/certificates", (req, res) => {
 // ============================
 // 🚀 START SERVER
 // ============================
-app.listen(PORT, () => console.log(`✅ Server running on http://localhost:${PORT}`));
+app.listen(PORT, () => console.log(`✅ Server running on port ${PORT}`));
