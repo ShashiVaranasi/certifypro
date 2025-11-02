@@ -9,10 +9,10 @@ const QRCode = require("qrcode");
 const { v4: uuidv4 } = require("uuid");
 const mysql = require("mysql2");
 require("dotenv").config();
-
+dotenv.config(); 
 const app = express();
 const PORT = process.env.PORT || 5000;
-
+const __dirname = path.resolve();
 app.use(cors());
 app.use(express.json());
 
@@ -26,6 +26,7 @@ const db = mysql.createConnection({
   user: process.env.DB_USER || "root",
   password: process.env.DB_PASS || "1234",
   database: process.env.DB_NAME || "certifypro",
+  port: process.env.DB_PORT || 3306,
 });
 
 db.connect((err) => {
