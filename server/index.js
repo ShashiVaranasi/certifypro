@@ -8,14 +8,12 @@ const PDFDocument = require("pdfkit");
 const QRCode = require("qrcode");
 const { v4: uuidv4 } = require("uuid");
 const mysql = require("mysql2");
-require("dotenv").config(); // ✅ only once
+require("dotenv").config();
 
 const app = express();
 const PORT = process.env.PORT || 5000;
 
-// ✅ REMOVE this line (it caused the Render error)
-// const __dirname = path.resolve();
-
+// Middleware
 app.use(cors());
 app.use(express.json());
 
@@ -27,7 +25,7 @@ const upload = multer({ dest: "uploads/" });
 const db = mysql.createConnection({
   host: process.env.DB_HOST || "localhost",
   user: process.env.DB_USER || "root",
-  password: process.env.DB_PASSWORD || "1234", // ✅ corrected variable
+  password: process.env.DB_PASSWORD || "1234",
   database: process.env.DB_NAME || "certifypro",
   port: process.env.DB_PORT || 3306,
 });
@@ -168,19 +166,15 @@ app.get("/certificates", (req, res) => {
 });
 
 // ============================
-// 🚀 START SERVER
+// 🚀 SERVE FRONTEND (Vite build)
 // ============================
-import path from "path";
-import { fileURLToPath } from "url";
-
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
-
-// Serve React frontend
-app.use(express.static(path.join(__dirname, "../client/build")));
+app.use(express.static(path.join(__dirname, "../client/dist")));
 
 app.get("*", (req, res) => {
-  res.sendFile(path.join(__dirname, "../client/build/index.html"));
+  res.sendFile(path.join(__dirname, "../client/dist/index.html"));
 });
 
+// ============================
+// START SERVER
+// ============================
 app.listen(PORT, () => console.log(`✅ Server running on port ${PORT}`));
