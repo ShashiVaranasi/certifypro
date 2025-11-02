@@ -1,18 +1,17 @@
 import React, { useState } from "react";
 
+// ✅ Dynamic backend URL (Render or Localhost)
+const API_BASE_URL = import.meta.env.VITE_API_URL || "http://localhost:5000";
+
 function Generate() {
   const [excelData, setExcelData] = useState([]);
   const [organisation, setOrganisation] = useState("");
   const [course, setCourse] = useState("");
   const [loading, setLoading] = useState(false);
 
-  // ✅ Automatically switch between local and Render backend
-  const API_BASE_URL =
-    import.meta.env.VITE_API_URL || "http://localhost:5000";
-
-  // ============================
+  // ===========================
   // 📤 Upload Excel File
-  // ============================
+  // ===========================
   const handleFileUpload = async (e) => {
     const file = e.target.files[0];
     if (!file) return;
@@ -27,29 +26,30 @@ function Generate() {
         body: formData,
       });
 
-      if (!res.ok) throw new Error("Upload failed");
+      if (!res.ok) throw new Error("Failed to upload Excel file");
 
       const data = await res.json();
       setExcelData(data);
       alert("✅ Excel uploaded successfully!");
     } catch (err) {
       console.error("❌ Excel upload failed:", err);
-      alert("Failed to upload Excel file!");
+      alert("Failed to upload Excel file. Please try again!");
     } finally {
       setLoading(false);
     }
   };
 
-  // ============================
-  // 🧾 Save Data to Database
-  // ============================
+  // ===========================
+  // 🧾 Generate & Save Certificates
+  // ===========================
   const handleGenerate = async () => {
-    if (!organisation || !course) {
-      alert("⚠️ Please fill organisation and course details!");
+    if (!organisation.trim() || !course.trim()) {
+      alert("Please fill organisation and course details!");
       return;
     }
+
     if (excelData.length === 0) {
-      alert("⚠️ Please upload Excel first!");
+      alert("Please upload Excel first!");
       return;
     }
 
@@ -57,7 +57,7 @@ function Generate() {
 
     try {
       for (const row of excelData) {
-        await fetch(`${API_BASE_URL}/generate-db`, {
+        const res = await fetch(`${API_BASE_URL}/generate-db`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
@@ -67,9 +67,11 @@ function Generate() {
             course,
           }),
         });
+
+        if (!res.ok) throw new Error("Failed to save certificate data");
       }
 
-      alert("🎉 All certificates saved successfully!");
+      alert("✅ All certificates saved successfully!");
       window.location.href = "/certificates";
     } catch (err) {
       console.error("❌ Error saving data:", err);
@@ -84,7 +86,7 @@ function Generate() {
       <h1 className="heading">Upload Excel & Generate Certificates</h1>
 
       <div className="form-section">
-        <label>📁 Upload Excel:</label>
+        <label>Upload Excel:</label>
         <input
           type="file"
           accept=".xlsx, .xls"
@@ -92,7 +94,7 @@ function Generate() {
           disabled={loading}
         />
 
-        <label>🏢 Organisation Name:</label>
+        <label>Organisation Name:</label>
         <input
           type="text"
           placeholder="Enter organisation name"
@@ -101,7 +103,7 @@ function Generate() {
           disabled={loading}
         />
 
-        <label>🎓 Course Name:</label>
+        <label>Course Name:</label>
         <input
           type="text"
           placeholder="Enter course name"
@@ -115,6 +117,7 @@ function Generate() {
         </button>
       </div>
 
+      {/* Excel Preview Table */}
       {excelData.length > 0 && (
         <div className="preview-section">
           <h3>Preview Data</h3>
